@@ -1,0 +1,20 @@
+/* formatting of stdout and stderr */
+div.cell-output-stdout pre {
+    padding: 0.4em;
+    margin: 0px;
+}
+div.cell-output-stderr pre {
+    padding: 0.4em;
+    margin: 0px;
+    color: var(--bs-danger);
+}
+div.cell-output-stdout,
+div.cell-output-stderr {
+    border: 1px solid var(--bs-border-color);
+}
+div.cell-output-stdout + div.cell-output-stderr {
+    border-top: none;
+}
+div.cell {
+    margin-bottom: 1rem;
+}

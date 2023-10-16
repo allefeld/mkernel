@@ -1,0 +1,35 @@
+[project]
+name = "mkernel"
+dynamic = ["version"]
+description = "MKernel: A Jupyter Kernel for Matlab"
+readme = "README.md"
+requires-python = ">=3.3"
+authors = [{name = "Carsten Allefeld"}]
+keywords = ["jupyter", "kernel", "matlab"]
+classifiers = [   # see <https://pypi.org/classifiers/>
+  "Development Status :: 5 - Production/Stable",
+  "Framework :: Jupyter",
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+  "Programming Language :: Python :: 3",
+  "Topic :: Scientific/Engineering"
+]
+dependencies = [
+    "ipykernel",
+    "matlabengine",
+    "wurlitzer"
+]
+
+[project.urls]
+Homepage = "https://github.com/allefeld/mkernel"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/mkernel/kernel.py"
+
+[tool.hatch.build.targets.wheel.shared-data]
+"kernelspec/kernel.json" = "share/jupyter/kernels/mkernel/kernel.json"

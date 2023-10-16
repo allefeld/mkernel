@@ -1,0 +1,56 @@
+---
+title: MKernel test 1
+jupyter: mkernel
+format:
+  html:
+    embed-resources: true
+    css: styles.css
+---
+
+
+```{matlab}
+%| echo: false
+clear all
+```
+
+Some computation:
+
+```{matlab}
+cos(pi)
+```
+
+Other than in the Matlab Command Window, `stdout` and `stderr` are separated:
+
+```{matlab}
+fprintf('stdout\n')
+fprintf(2, 'stderr\n')
+warning('warning')
+error('error')
+```
+
+Numbers will appear in two different outputs only after the block is finished executing:
+
+```{matlab}
+for i = 1 : 10
+    if mod(i, 2) == 0
+        fprintf(' %d ', i)
+    else
+        fprintf(2,' %d ', i)
+    end
+    pause(0.1)
+end
+```
+
+Embedded plot in SVG format:
+
+```{matlab}
+setappdata(0, "MKernel_plot_format", "svg")
+plot([1, 3, 2])
+```
+
+Embedded plot in PNG format:
+
+```{matlab}
+setappdata(0, "MKernel_plot_format", "png")
+plot([1, 3, 2])
+```

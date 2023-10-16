@@ -1,0 +1,8 @@
+TODO.md
+*.whl
+examples/*.html
+.vscode/
+__pycache__/
+.ipynb_checkpoints/
+.jupyter_cache/
+.quarto/

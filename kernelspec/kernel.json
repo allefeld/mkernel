@@ -1,0 +1,5 @@
+{
+    "argv": ["python3", "-m", "mkernel", "-f", "{connection_file}"],
+    "display_name": "MKernel",
+    "language": "matlab"
+}
