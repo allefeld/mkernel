@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+title: 'MKernel: A Jupyter Kernel for Matlab'
+message: >-
+  If you use this software for academic work, I would
+  appreciate a citation.
+type: software
+authors:
+  - given-names: Allefeld
+    family-names: Carsten
+    email: carsten.allefeld@city.ac.uk
+    orcid: 'https://orcid.org/0000-0002-1037-2735'
+    affiliation: 'City, University of London'
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.10028659
+    description: 'Zenodo publication, concept DOI for all versions'
+repository-code: 'https://github.com/allefeld/mkernel/'
+abstract: >-
+  MKernel is a Juypter kernel for Matlab, intended to be
+  better in some respects than the existing options, in
+  particular in supporting Quarto documents.
+keywords:
+  - juypter
+  - matlab
+  - kernel
+license: GPL-3.0-or-later
+version: 1.0.0
+date-released: '2023-10-20'
