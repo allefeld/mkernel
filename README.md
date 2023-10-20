@@ -124,15 +124,15 @@ setappdata(0, "MKernel_plot_format", format)
 
 The file format of plots displayed in the client by the `"inline"` backend, used as the `-d` argument to Matlab's `print` function; the default is `"png"`. All image formats supported by that function can be used. They are, along with the used mediatype:
 
-```
-"png"                             image/png
-"svg"                             image/svg+xml
-"jpeg"                            image/jpeg
-"tiff", "tiffn"                   image/tiff
-"meta"                            application/emf
-"pdf"                             application/pdf
-"eps", "epsc", "eps2", "eps2c"    application/postscript
-```
+| format(s)                              | mediatype                |
+| -------------------------------------- | ------------------------ |
+| `"png"`                                | `image/png`              |
+| `"svg"`                                | `image/svg+xml`          |
+| `"jpeg"`                               | `image/jpeg`             |
+| `"tiff"`, `"tiffn"`                    | `image/tiff`             |
+| `"meta"`                               | `application/emf`        |
+| `"pdf"`                                | `application/pdf`        |
+| `"eps"`, `"epsc"`, `"eps2"`, `"eps2c"` | `application/postscript` |
 
 Note however that only `"png"`, `"svg"`, and `"jpeg"` can be expected to be displayed properly across clients. Moreover, Enhanced Metafiles (`"meta"`) are only supported on Windows.
 
