@@ -150,9 +150,7 @@ The `-r` argument of `print` applies mainly to bitmap graphics formats, but depe
 
 MKernel provides no special means to control the size of plots, because that can easily be achieved by Matlab code. For a figure with handle `fig` use code like:
 ```matlab
-pos = fig.Position;
-pos(3:4) = [width, height];
-fig.Position = pos;
+fig.Position(3:4) = [width, height];
 ```
 To set the default size for plots created subsequently, use:
 ```matlab
