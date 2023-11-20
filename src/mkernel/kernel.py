@@ -6,7 +6,7 @@ Copyright © 2023 Carsten Allefeld
 SPDX-License-Identifier: GPL-3.0-or-later
 """
 
-__version__ = '1.0.0'
+__version__ = '1.0.1'
 
 
 from os import path, environ
@@ -17,7 +17,12 @@ import gc
 
 from ipykernel.kernelbase import Kernel
 import matlab.engine as me
-from wurlitzer import pipes
+try:
+    from wurlitzer import pipes
+except ModuleNotFoundError:
+    # wurlitzer cannot be imported on Windows
+    # see https://github.com/minrk/wurlitzer/issues/12
+    pipes = None
 
 from .json_logging import getJSONLogger, selfless
 
@@ -172,6 +177,9 @@ class MKernel(Kernel):
             capture = 'auto'
         if capture == 'auto':
             capture = 'wrapper' if allow_stdin else 'engine'
+        if pipes is None:
+            # wurlitzer cannot be imported on Windows
+            capture = 'engine'
         self.log.debug(f'executing code, capture = {repr(capture)}')
         try:
             if capture == 'engine':
