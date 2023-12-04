@@ -12,7 +12,7 @@ The kernel is implemented in Python 3. It was developed with Python 3.10 and Mat
 
 If you use this software for academic work, I would appreciate a citation:
 
->   Allefeld, C. (2023). *MKernel: A Jupyter Kernel for Matlab* (1.0.0)
+>   Allefeld, C. (2023). *MKernel: A Jupyter Kernel for Matlab* (1.0.1)
 
 You can find the Zenodo DOI for this version from its GitHub release notes.
 
@@ -99,8 +99,6 @@ Note that while the kernel runs Matlab in the background without the Desktop GUI
 
 
 ## Configuration
-
-MKernel does not implement magics, because their use prevents using identical code in Matlab proper, and because most if not all of the interactive features which IPython adds to Python via magics (e.g. `%cd`, `%run`, `%edit`, `%logon`, `%system`, `%whos`, `!`) are already provided by Matlab.
 
 MKernel configuration from Matlab is achieved by setting application data on the root element (`0` or `groot`), which has no effect if the code is used outside of the kernel.
 
@@ -190,7 +188,11 @@ Before starting the Matlab engine, MKernel sets the environment variable `MKERNE
 
 -   Jupyter Console has a [bug](https://github.com/jupyter/jupyter_console/issues/296) which prevents code execution to be interrupted by <kbd>Ctrl+C</kbd>.
 
+-   The `"wrapper"` method of output capture is not supported on Windows because of a [limitation](https://github.com/minrk/wurlitzer/issues/12) of the underlying `wurlitzer` package. The setting is silently ignored and the `"engine"` method used instead.
+
 -   The configuration logic creates temporary Matlab variables with names of the form `MKernel_*`, which are later removed. If you use variables with names of this form, they will not be retained between code executions (notebook cells).
+
+A further intentional limitation is that MKernel does not implement IPython-style magics, because their use prevents using identical code in Matlab proper. Moreover, most if not all of the interactive features which IPython adds to Python via magics (e.g. `%cd`, `%run`, `%edit`, `%logon`, `%system`, `%whos`, `!`) are already provided by Matlab.
 
 
 ## How to report issues
