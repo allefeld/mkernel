@@ -2,11 +2,11 @@
 
 kernel implementation
 
-Copyright © 2023 Carsten Allefeld
+Copyright © 2023–2024 Carsten Allefeld
 SPDX-License-Identifier: GPL-3.0-or-later
 """
 
-__version__ = '1.0.1'
+__version__ = '1.1.0'
 
 
 from os import path, environ
@@ -16,7 +16,8 @@ from base64 import encodebytes
 import gc
 
 from ipykernel.kernelbase import Kernel
-import matlab.engine as me
+import matlab
+import matlab.engine
 try:
     from wurlitzer import pipes
 except ModuleNotFoundError:
@@ -27,63 +28,61 @@ except ModuleNotFoundError:
 from .json_logging import getJSONLogger, selfless
 
 
-_prepare_execution = '''
-%% get and check plot backend
+_get_check_set = '''
+%% plot backend
 MKernel_plot_backend = lower(string(getappdata(0, "MKernel_plot_backend")));
 if isempty(MKernel_plot_backend)
-    MKernel_plot_backend = "inline";    %% default
-    setappdata(0, "MKernel_plot_backend", MKernel_plot_backend);
+    MKernel_plot_backend = "inline";        %% default
 end
+setappdata(0, "MKernel_plot_backend", MKernel_plot_backend);
 assert(ismember(MKernel_plot_backend, ["inline", "native"]), ...
     "Unknown plot backend '%s'", MKernel_plot_backend)
-%% set visibility of figure windows
-set(0, "defaultFigureVisible", ~isequal(MKernel_plot_backend, "inline"))
-%% get and check output capture
+%% plot format
+MKernel_plot_format = lower(string(getappdata(0, "MKernel_plot_format")));
+if isempty(MKernel_plot_format)
+    MKernel_plot_format = "png";            %% default
+end
+setappdata(0, "MKernel_plot_format", MKernel_plot_format);
+MKernel__formats = struct(png="png", svg="svg", jpeg="jpg", ...
+    tiff="tiff", tiffn="tiff", meta="emf", pdf="pdf", eps="eps", ...
+    epsc="eps", eps2="eps", eps2c="eps");
+assert(isfield(MKernel__formats, MKernel_plot_format), ...
+    "Unknown plot format '%s'", MKernel_plot_format)
+%% plot resolution
+MKernel_plot_resolution = getappdata(0, "MKernel_plot_resolution");
+if isempty(MKernel_plot_resolution)
+    MKernel_plot_resolution = get(0, "ScreenPixelsPerInch");
+end
+setappdata(0, "MKernel_plot_resolution", MKernel_plot_resolution);
+assert(isnumeric(MKernel_plot_resolution) ...
+    && (numel(MKernel_plot_resolution) == 1) ...
+    && (MKernel_plot_resolution > 0) ...
+    && (round(MKernel_plot_resolution) == MKernel_plot_resolution), ...
+    "Invalid plot resolution, must be positive integer scalar")
+%% output capture
 MKernel_output_capture = lower(string(...
     getappdata(0, "MKernel_output_capture")));
 if isempty(MKernel_output_capture)
-    MKernel_output_capture = "auto";    %% default
-    setappdata(0, "MKernel_output_capture", MKernel_output_capture);
+    MKernel_output_capture = "auto";        %% default
 end
+setappdata(0, "MKernel_output_capture", MKernel_output_capture);
 assert(ismember(MKernel_output_capture, ["auto", "wrapper", "engine"]), ...
     "Unknown output capture '%s'", MKernel_output_capture)
+'''
+
+_prepare_execution = _get_check_set + '''
+%% set visibility of figure windows
+set(0, "defaultFigureVisible", ~isequal(MKernel_plot_backend, "inline"))
 %% cleanup
 clear -regexp ^MKernel_
 '''
 
-_write_plots = '''
-%% get and check plot backend
-MKernel_plot_backend = lower(string(getappdata(0, "MKernel_plot_backend")));
-if isempty(MKernel_plot_backend)
-    MKernel_plot_backend = "inline";    %% default
-    setappdata(0, "MKernel_plot_backend", MKernel_plot_backend);
-end
-assert(ismember(MKernel_plot_backend, ["inline", "native"]), ...
-    "Unknown plot backend '%s'", MKernel_plot_backend)
+_write_plots = _get_check_set + '''
 %% only for "inline" plot backend: write plots
 if isequal(MKernel_plot_backend, "inline")
-    %% get and check plot format
-    MKernel_plot_format = lower(string(getappdata(0, "MKernel_plot_format")));
-    if isempty(MKernel_plot_format)
-        MKernel_plot_format = "png";    %% default
-        setappdata(0, "MKernel_plot_format", MKernel_plot_format);
-    end
-    MKernel__formats = struct(png="png", svg="svg", jpeg="jpg", ...
-        tiff="tiff", tiffn="tiff", meta="emf", pdf="pdf", eps="eps", ...
-        epsc="eps", eps2="eps", eps2c="eps");
-    assert(isfield(MKernel__formats, MKernel_plot_format), ...
-        "Unknown plot format '%s'", MKernel_plot_format)
-    %% get and check plot resolution
-    MKernel_plot_resolution = getappdata(0, "MKernel_plot_resolution");
-    if isempty(MKernel_plot_resolution)
-        MKernel_plot_resolution = get(0, "ScreenPixelsPerInch");
-        setappdata(0, "MKernel_plot_resolution", MKernel_plot_resolution);
-    end
-    assert(isnumeric(MKernel_plot_resolution) ...
-        && (numel(MKernel_plot_resolution) == 1) ...
-        && (MKernel_plot_resolution > 0) ...
-        && (round(MKernel_plot_resolution) == MKernel_plot_resolution), ...
-        "Invalid plot resolution, must be positive integer scalar")
+    %% turn MATLAB:print:ExcludesUIInFutureRelease warning off
+    ws = warning('query', 'MATLAB:print:ExcludesUIInFutureRelease');
+    warning('off', 'MATLAB:print:ExcludesUIInFutureRelease')
     %% create temporary directory
     MKernel__tmpdir = tempname;
     mkdir(MKernel__tmpdir)
@@ -94,24 +93,30 @@ if isequal(MKernel_plot_backend, "inline")
         MKernel__handle = MKernel__children(MKernel__index);
         %% fix that default for pdf is full-page
         if isequal(MKernel_plot_format, "pdf")
-            MKernel__handle.Units = "inches";
-            MKernel__position = MKernel__handle.Position;
-            MKernel__handle.PaperPosition = [0 0 MKernel__position(3:4)];
-            MKernel__handle.PaperSize = MKernel__position(3:4);
+            MKernel__handle.PaperPosition = ...
+                [0 0 MKernel__handle.PaperPosition(3:4)];
+            MKernel__handle.PaperSize = MKernel__handle.PaperPosition(3:4);
         end
-        %% print figure to temporary file
+        %% print figure to temporary file and output file name
         MKernel__filename = ...
             fullfile(MKernel__tmpdir, num2str(MKernel__index, "%06d"));
-        print(MKernel__handle, ...
-            MKernel__filename, ...
-            sprintf("-d%s", MKernel_plot_format), ...
-            sprintf("-r%d", MKernel_plot_resolution))
+        try
+            print(MKernel__handle, ...
+                MKernel__filename, ...
+                sprintf("-d%s", MKernel_plot_format), ...
+                sprintf("-r%d", MKernel_plot_resolution))
+            MKernel__extension = getfield(MKernel__formats, ...
+                MKernel_plot_format);
+            fprintf("%s.%s\\n", MKernel__filename, MKernel__extension)
+        catch ME
+            fprintf(2, "\\n  Figure %d: %s", MKernel__handle.Number, ...
+                ME.message)
+        end
         %% close figure so it isn't printed again with the next cell
         close(MKernel__handle)
-        %% output filename for capture by kernel
-        MKernel__extension = getfield(MKernel__formats, MKernel_plot_format);
-        fprintf("%s.%s\\n", MKernel__filename, MKernel__extension)
     end
+    %% restore state of MATLAB:print:ExcludesUIInFutureRelease
+    warning(ws)
 end
 %% cleanup
 clear -regexp ^MKernel_
@@ -139,6 +144,8 @@ class MKernel(Kernel):
         self.log = getJSONLogger('mkernel')
         # signal presence of kernel through environment variable
         environ['MKERNEL'] = self.implementation_version
+        # announce communications handler
+        self.shell_handlers['comm_open'] = self._comm
         # initialize Matlab
         self._init_matlab()
 
@@ -146,7 +153,7 @@ class MKernel(Kernel):
         # start Matlab engine
         self.log.info('starting Matlab engine')
         try:
-            self._matlab = me.start_matlab()
+            self._matlab = matlab.engine.start_matlab()
             self.language_version = self._matlab.version()
         except Exception as e:
             self.log.critical('could not start Matlab engine', exc_info=e)
@@ -155,10 +162,72 @@ class MKernel(Kernel):
         self.banner = 'MKernel: ' + version
         self.log.info(f'started {version}')
 
+    def _comm(self, stream, ident, msg):
+        # https://jupyter-client.readthedocs.io/en/latest/messaging.html#custom-messages
+        # handle communications
+        if msg['content']['target_name'] == "quarto_kernel_setup":
+            o = msg['content']['data']['options']
+            self.log.info('received Quarto communication', extra=o)
+            # receive Quarto document options & convert to Matlab settings
+            # <https://quarto.org/docs/advanced/jupyter/kernel-execution.html>
+            # `fig-format`
+            try:
+                self._matlab.setappdata(
+                    0., 'MKernel_plot_format',
+                    o['fig_format'] if o['fig_format'] != 'retina' else 'svg',
+                    nargout=0)
+            except Exception as e:
+                self.log.error('exception in Matlab engine', exc_info=e)
+            # `fig-dpi`
+            try:
+                self._matlab.setappdata(
+                    0., 'MKernel_plot_resolution', o['fig_dpi'],
+                    nargout=0)
+            except Exception as e:
+                self.log.error('exception in Matlab engine', exc_info=e)
+            # `fig-width` & `fig-height`
+            try:
+                self._matlab.set(
+                    0., 'defaultFigurePaperUnits', 'inches',
+                    nargout=0)
+                self._matlab.set(
+                    0., 'defaultFigurePaperPosition',
+                    matlab.double([0., 0., o['fig_width'], o['fig_height']]),
+                    nargout=0)
+                self._matlab.set(
+                    0., 'defaultFigurePaperPositionMode', 'manual',
+                    nargout=0)
+            except Exception as e:
+                self.log.error('exception in Matlab engine', exc_info=e)
+            # There is also `allow_errors` with default `false`.
+            # Do we want this, especially as a default?
+            # Also unclear how to implement it.
+
     def do_execute(self, code, silent, store_history=True,
                    user_expressions=None, allow_stdin=False, cell_id=None):
         # https://jupyter-client.readthedocs.io/en/latest/messaging.html#execute
         self.log.info('called with', extra=selfless(locals()))
+        # prepare reply
+        reply = {
+            'status': 'ok',
+            'execution_count': self.execution_count,
+            'payload': [],
+            'user_expressions': {}
+            }
+        # check for Quarto setup cell
+        # see <https://github.com/quarto-dev/quarto-cli/issues/9100>
+        if code.startswith(r"% setup 2d7a65c64eb8bb2b9cba670d8e11cef1"):
+            # respond to cell
+            self.log.info('responding to Quarto setup', extra={'reply': reply})
+            self.send_response(
+                self.iopub_socket,
+                'execute_result', {
+                    "data": {"text/plain": ""},
+                    "metadata": {'quarto': {'daemonize': True}},
+                    'execution_count': self.execution_count,
+                })
+            # do not execute the cell
+            return reply
         # prepare execution
         self.log.debug('preparing execution')
         stderr = StringIO()
@@ -170,6 +239,7 @@ class MKernel(Kernel):
         # execute code
         stdout = StreamIO(self, 'stdout', silent)
         stderr = StreamIO(self, 'stderr', silent)
+        # StreamIO objects automatically send everything written to them
         try:
             capture = self._matlab.getappdata(0., 'MKernel_output_capture')
         except Exception as e:
@@ -192,11 +262,11 @@ class MKernel(Kernel):
                 # `StreamIO.write` gets called for each output
                 with pipes(stdout=stdout, stderr=stderr):
                     self._matlab.eval(code, nargout=0)
-        except (SyntaxError, me.MatlabExecutionError):
+        except (SyntaxError, matlab.engine.MatlabExecutionError):
             # Occurs when there's an error in Matlab.
             # The error message gets passed to the user via stderr
             pass
-        except me.InterruptedError as e:
+        except matlab.engine.InterruptedError as e:
             self.log.warning('Matlab stopped by user, restarting', exc_info=e)
             # Occurs when the user issues `quit` or `exit`. Since it is not
             # possible to shut down the kernel from within the kernel such that
@@ -214,7 +284,7 @@ class MKernel(Kernel):
                 # trigger finalizing the engine object
                 del self._matlab
                 gc.collect()
-            except me.SystemError:
+            except matlab.engine.SystemError:
                 # Unavoidably occurs when the garbage collector finalizes the
                 # engine object, which calls the `.exit()` method on it, which
                 # fails because the engine is already stopped.
@@ -225,15 +295,22 @@ class MKernel(Kernel):
             self.log.error('exception in Matlab engine', exc_info=e)
         # write plots
         self.log.debug('writing plots')
+        stdout = StringIO()
         stderr = StringIO()
         try:
             # get filenames
-            filenames = self._matlab.evalc(_write_plots, stderr=stderr)
-            filenames = filenames.split()
+            self._matlab.eval(_write_plots, nargout=0,
+                              stdout=stdout, stderr=stderr)
+            filenames = stdout.getvalue().split()
+            ploterrors = stderr.getvalue()
         except Exception as e:
             self.log.error('exception', exc_info=e)
             self._send_text('stderr', f'MKernel: {e.args[0]}')
             filenames = []
+            ploterrors = []
+        if len(ploterrors) > 0:
+            self._send_text('stderr',
+                            f'MKernel: Errors saving plots.{ploterrors}')
         # process plots
         self.log.debug('processing plots')
         mimetype = {
@@ -251,13 +328,7 @@ class MKernel(Kernel):
             with open(filename, 'rb') as f:
                 data = f.read()
             self._send_data(mimetype[extension], data)
-        # prepare reply
-        reply = {
-            'status': 'ok',
-            'execution_count': self.execution_count,
-            'payload': [],
-            'user_expressions': {}
-            }
+        # return reply
         self.log.info('returning', extra={'reply': reply})
         return reply
 
@@ -434,6 +505,9 @@ class MKernel(Kernel):
 
 
 class StreamIO(StringIO):
+    # used in `do_execute` to receive output (stdout / stderr),
+    # directly from the Matlab engine's `eval` or intercepted by `pipes`,
+    # postprocesses it, and send it on to the client
 
     _re_char_backspace = re.compile('[^\b\n]\b')
 

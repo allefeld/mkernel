@@ -33,3 +33,4 @@ path = "src/mkernel/kernel.py"
 
 [tool.hatch.build.targets.wheel.shared-data]
 "kernelspec/kernel.json" = "share/jupyter/kernels/mkernel/kernel.json"
+"kernelspec/quarto_setup_cell" = "share/jupyter/kernels/mkernel/quarto_setup_cell"

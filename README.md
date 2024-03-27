@@ -8,11 +8,11 @@ MKernel is a Juypter kernel for Matlab, intended to be better in some respects t
 
 I started to fix issues in a fork of `matlab_kernel`, but ultimately found it easier to start from scratch based on [*Making simple Python wrapper kernels*](https://jupyter-client.readthedocs.io/en/latest/wrapperkernels.html) and using [`echo_kernel`](https://github.com/jupyter/echo_kernel) as a template.
 
-The kernel is implemented in Python 3. It was developed with Python 3.10 and Matlab R2023b (including matlabengine 23.2.1), and tested using Jupyter 5.3.1 (including notebook 6.5.5, lab 3.6.5, console 6.6.3, qtconsole 5.4.4), VSCode 1.83.0 (with the notebook and interactive window provided by the Jupyter extension v2023.9), and Quarto 1.4.388 (using NBClient 0.7.4).
+The kernel is implemented in Python 3. It was developed with Python 3.10 and Matlab R2023b (including matlabengine 23.2.1), and tested using Jupyter 5.3.1 (including notebook 6.5.5, lab 3.6.5, console 6.6.3, qtconsole 5.4.4), VSCode 1.83.0 (with the notebook and interactive window provided by the Jupyter extension v2023.9), and Quarto 1.4.388 (using NBClient 0.7.4), but later versions should work, too.
 
 If you use this software for academic work, I would appreciate a citation:
 
->   Allefeld, C. (2023). *MKernel: A Jupyter Kernel for Matlab* (1.0.1)
+>   Allefeld, C. (2023). *MKernel: A Jupyter Kernel for Matlab* (1.1.0)
 
 You can find the Zenodo DOI for this version from its GitHub release notes.
 
@@ -31,7 +31,7 @@ MKernel derives its functionality from the The Mathworks' [Matlab Engine for Pyt
 ```bash
 pip install matlabengine==<version>
 ```
-A partial compatibility list is R2023b: 23.2, R2023a: 9.14, R2022b: 9.13, R2022a: 9.12, R2021b: 9.11, R2021a: 9.10, R2020b: 9.9.
+A partial compatibility list is R2024a: 24.1, R2023b: 23.2, R2023a: 9.14, R2022b: 9.13, R2022a: 9.12, R2021b: 9.11, R2021a: 9.10, R2020b: 9.9.
 
 
 ## Usage
@@ -100,7 +100,7 @@ Note that while the kernel runs Matlab in the background without the Desktop GUI
 
 ## Configuration
 
-MKernel configuration from Matlab is achieved by setting application data on the root element (`0` or `groot`), which has no effect if the code is used outside of the kernel.
+MKernel configuration from Matlab is achieved by setting application data on the root element (`0` or `groot()`), which has no effect if the code is used outside of the kernel.
 
 ### Plot backend
 
@@ -120,7 +120,7 @@ Mixing the two frontends within the same session may lead to unexpected results.
 setappdata(0, "MKernel_plot_format", format)
 ```
 
-The file format of plots displayed in the client by the `"inline"` backend, used as the `-d` argument to Matlab's `print` function; the default is `"png"`. All image formats supported by that function can be used. They are, along with the used mediatype:
+The file format of plots displayed in the client by the `"inline"` backend, used as the `-d` argument to Matlab's `print` function; the initial value is `"png"`. All image formats supported by that function can be used. They are, along with the used mediatype:
 
 | format(s)                              | mediatype                |
 | -------------------------------------- | ------------------------ |
@@ -134,6 +134,8 @@ The file format of plots displayed in the client by the `"inline"` backend, used
 
 Note however that only `"png"`, `"svg"`, and `"jpeg"` can be expected to be displayed properly across clients. Moreover, Enhanced Metafiles (`"meta"`) are only supported on Windows.
 
+From Quarto 1.5, the initial `MKernel_plot_format` is taken from the Quarto document option `fig-format` (`retina`, `png`, `jpeg`, `svg`, or `pdf`), with `retina` translated into `svg`. If not set explicitly, Quarto uses an output-format dependent default.
+
 ### Plot resolution
 
 ```matlab
@@ -144,18 +146,21 @@ The resolution of plots displayed in the client by the `"inline"` backend, used 
 
 The `-r` argument of `print` applies mainly to bitmap graphics formats, but depending on the renderer it may also apply to bitmap images embedded in vector graphics formats.
 
+From Quarto 1.5, the initial `MKernel_plot_resolution` is taken from the Quarto document option `fig-dpi`. If not set explicitly, Quarto uses an output-format dependent default.
+
 ### Plot size
 
 MKernel provides no special means to control the size of plots, because that can easily be achieved by Matlab code. For a figure with handle `fig` use code like:
 ```matlab
-fig.Position(3:4) = [width, height];
+fig.PaperPosition(3:4) = [0, 0, width, height];
 ```
 To set the default size for plots created subsequently, use:
 ```matlab
-pos = get(0, "defaultFigurePosition");
-pos(3:4) = [width, height];
-set(0, "defaultFigurePosition", pos)
+set(0, "defaultFigurePaperPosition", [0, 0, width, height])
+set(0, "defaultFigurePaperPositionMode", "manual")
 ```
+
+From Quarto 1.5, the initial `defaultFigurePaperPosition` is taken from the Quarto document options `fig-width` and `fig-height` (see [Figure size handling for Quarto](Figure_size_handling_for_Quarto.md) for more details). If not set explicitly, Quarto uses output-format dependent defaults.
 
 ### Output capture
 
@@ -192,7 +197,7 @@ Before starting the Matlab engine, MKernel sets the environment variable `MKERNE
 
 -   The configuration logic creates temporary Matlab variables with names of the form `MKernel_*`, which are later removed. If you use variables with names of this form, they will not be retained between code executions (notebook cells).
 
-A further intentional limitation is that MKernel does not implement IPython-style magics, because their use prevents using identical code in Matlab proper. Moreover, most if not all of the interactive features which IPython adds to Python via magics (e.g. `%cd`, `%run`, `%edit`, `%logon`, `%system`, `%whos`, `!`) are already provided by Matlab.
+A further intentional limitation is that MKernel does not implement IPython-style magics, because their use prevents using identical code in Matlab proper. However, most if not all of the interactive features which IPython adds to Python via magics (e.g. `%cd`, `%run`, `%edit`, `%logon`, `%system`, `%whos`, `!`) are already provided by Matlab.
 
 
 ## How to report issues
@@ -205,4 +210,4 @@ python3 -c "import os, tempfile, glob; print(glob.glob(os.path.join(tempfile.get
 
 ***
 
-This software is copyrighted © 2023 by Carsten Allefeld and released under the terms of the GNU General Public License, version 3 or later.
+This software is copyrighted © 2023–2024 by Carsten Allefeld and released under the terms of the GNU General Public License, version 3 or later.
