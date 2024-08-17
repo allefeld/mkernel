@@ -133,11 +133,6 @@ class MKernel(Kernel):
         'file_extension': '.m',
     }
 
-    # regular expression for tokenization
-    _re_tokens = re.compile(r"([a-zA-Z_0-9\.]*"         # identifiers & numbers
-                            r"|\n+"                     # line breaks
-                            r"|[^a-zA-Z_0-9\.\n]+)")    # everything else
-
     def __init__(self, **kwargs):
         # execute superclass constructor
         super().__init__(**kwargs)
@@ -159,7 +154,7 @@ class MKernel(Kernel):
             self.log.critical('could not start Matlab engine', exc_info=e)
             raise
         version = 'MATLAB ' + self.language_version
-        self.banner = 'MKernel: ' + version
+        self.banner = 'MKernel ' + __version__ + ': ' + version
         self.log.info(f'started {version}')
 
     def _comm(self, stream, ident, msg):
@@ -203,6 +198,19 @@ class MKernel(Kernel):
             # Do we want this, especially as a default?
             # Also unclear how to implement it.
 
+    # regular expression for line continuation
+    _re_continuation = re.compile(r'\.\.\.\s*(?:\r\n|\r|\n)')
+    # regular expression for function header
+    _re_function = re.compile(
+        r'^'                        # start
+        r'function\s*'              # keyword
+        r'(?:[^=]+=)?\s*'           # output parameters (optional)
+        r'([a-zA-Z]\w*)\s*'         # function name
+        r'(?:\([^\)]*\))?\s*'       # input arguments (optional)
+        r'(?:%.*)?'                 # comment (optional)
+        r'$'                        # end
+    )
+
     def do_execute(self, code, silent, store_history=True,
                    user_expressions=None, allow_stdin=False, cell_id=None):
         # https://jupyter-client.readthedocs.io/en/latest/messaging.html#execute
@@ -216,7 +224,7 @@ class MKernel(Kernel):
             }
         # check for Quarto setup cell
         # see <https://github.com/quarto-dev/quarto-cli/issues/9100>
-        if code.startswith(r"% setup 2d7a65c64eb8bb2b9cba670d8e11cef1"):
+        if code.startswith("% setup 4 8 15 16 23 42"):
             # respond to cell
             self.log.info('responding to Quarto setup', extra={'reply': reply})
             self.send_response(
@@ -226,6 +234,36 @@ class MKernel(Kernel):
                     "metadata": {'quarto': {'daemonize': True}},
                     'execution_count': self.execution_count,
                 })
+            # do not execute the cell
+            return reply
+        # check for function definition
+        if code.lstrip().startswith("function"):
+            self.log.info('processing Matlab function definition',
+                          extra={'reply': reply})
+            # normalize line continuation
+            code = self._re_continuation.sub(' ', code)
+            # extract the first line
+            firstLine = code.splitlines()[0]
+            # look for function definition at the beginning
+            match = self._re_function.match(firstLine)
+            if match:
+                # if found, write code to m-file
+                try:
+                    filename = match.group(1) + '.m'
+                    with open(filename, 'w') as file:
+                        file.write(code)
+                    self._send_text(
+                        'stdout',
+                        f'MKernel: Written to "{filename}".')
+                except Exception as e:
+                    self.log.error('exception', exc_info=e)
+                    self._send_text(
+                        'stderr',
+                        f'MKernel: {repr(e)} while writing "{filename}".')
+            else:
+                self._send_text(
+                    'stderr',
+                    f'MKernel: Could not identify function name.')
             # do not execute the cell
             return reply
         # prepare execution
@@ -405,6 +443,13 @@ class MKernel(Kernel):
         self.log.info('returning', extra={'reply': reply})
         return reply
 
+    # regular expression for tokenization
+    _re_tokens = re.compile(
+        r'([a-zA-Z_0-9\.]*'         # identifiers & numbers
+        r'|\n+'                     # line breaks
+        r'|[^a-zA-Z_0-9\.\n]+)'     # everything else
+    )
+
     def do_inspect(self, code, cursor_pos, detail_level=0, omit_sections=()):
         # https://jupyter-client.readthedocs.io/en/latest/messaging.html#introspection
         # used by Jupyter lab's contextual help
@@ -509,12 +554,13 @@ class StreamIO(StringIO):
     # directly from the Matlab engine's `eval` or intercepted by `pipes`,
     # postprocesses it, and send it on to the client
 
-    _re_char_backspace = re.compile('[^\b\n]\b')
-
     def __init__(self, kernel, stream_name, silent):
         self._kernel = kernel
         self._stream_name = stream_name
         self._silent = silent
+
+    # regular expression to process backspace characters in output
+    _re_char_backspace = re.compile('[^\b\n]\b')
 
     def write(self, text):
         self._kernel.log.info('called with', extra=selfless(locals()))
@@ -522,6 +568,7 @@ class StreamIO(StringIO):
         n = 1
         while n > 0:
             text, n = self._re_char_backspace.subn('', text)
+        text = text.replace('\b', '')
         # process carriage return
         text = text.replace('\r', '\n')
         # remove engine messages
