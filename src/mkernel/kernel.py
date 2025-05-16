@@ -81,8 +81,7 @@ _write_plots = _get_check_set + '''
 %% only for "inline" plot backend: write plots
 if isequal(MKernel_plot_backend, "inline")
     %% turn MATLAB:print:ExcludesUIInFutureRelease warning off
-    ws = warning('query', 'MATLAB:print:ExcludesUIInFutureRelease');
-    warning('off', 'MATLAB:print:ExcludesUIInFutureRelease')
+    MKernel__ws = warning('off', 'MATLAB:print:ExcludesUIInFutureRelease');
     %% create temporary directory
     MKernel__tmpdir = tempname;
     mkdir(MKernel__tmpdir)
@@ -116,7 +115,7 @@ if isequal(MKernel_plot_backend, "inline")
         close(MKernel__handle)
     end
     %% restore state of MATLAB:print:ExcludesUIInFutureRelease
-    warning(ws)
+    warning(MKernel__ws);
 end
 %% cleanup
 clear -regexp ^MKernel_
