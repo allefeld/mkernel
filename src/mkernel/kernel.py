@@ -6,7 +6,7 @@ Copyright © 2023–2024 Carsten Allefeld
 SPDX-License-Identifier: GPL-3.0-or-later
 """
 
-__version__ = '1.1.0'
+__version__ = '1.2.0'
 
 
 from os import path, environ

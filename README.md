@@ -12,7 +12,7 @@ The kernel is implemented in Python 3. It was developed with Python 3.10 and Mat
 
 If you use this software for academic work, I would appreciate a citation:
 
->   Allefeld, C. (2023). *MKernel: A Jupyter Kernel for Matlab* (1.1.0)
+>   Allefeld, C. (2023). *MKernel: A Jupyter Kernel for Matlab* (1.2.0)
 
 You can find the Zenodo DOI for this version from its GitHub release notes.
 
