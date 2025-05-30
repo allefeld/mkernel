@@ -209,6 +209,17 @@ class MKernel(Kernel):
         r'(?:%.*)?'                 # comment (optional)
         r'$'                        # end
     )
+    # regular expression for class header
+    _re_classdef = re.compile(
+        r'^'                                         # start
+        r'classdef\s*'                               # keyword
+        r'(?:\([^\)]*\))?\s*'                        # attributes (optional)
+        r'([a-zA-Z]\w*)\s*'                          # class name
+        r'(?:\([^\)]*\))?\s*'                        # input arguments (optional)
+        r'(?:(\s*<?\s*(\w*\s*)(&\s*\w*\s*)*)?'       # superclasses (optional)
+        r'(?:%.*)?'                                  # comment (optional)
+        r'$'                                         # end
+    )
 
     def do_execute(self, code, silent, store_history=True,
                    user_expressions=None, allow_stdin=False, cell_id=None):
@@ -263,6 +274,36 @@ class MKernel(Kernel):
                 self._send_text(
                     'stderr',
                     f'MKernel: Could not identify function name.')
+            # do not execute the cell
+            return reply
+        # check for function definition
+        if code.lstrip().startswith("classdef"):
+            self.log.info('processing Matlab class definition',
+                          extra={'reply': reply})
+            # normalize line continuation
+            code = self._re_continuation.sub(' ', code)
+            # extract the first line
+            firstLine = code.splitlines()[0]
+            # look for function definition at the beginning
+            match = self._re_classdef.match(firstLine)
+            if match:
+                # if found, write code to m-file
+                try:
+                    filename = match.group(1) + '.m'
+                    with open(filename, 'w') as file:
+                        file.write(code)
+                    self._send_text(
+                        'stdout',
+                        f'MKernel: Written to "{filename}".')
+                except Exception as e:
+                    self.log.error('exception', exc_info=e)
+                    self._send_text(
+                        'stderr',
+                        f'MKernel: {repr(e)} while writing "{filename}".')
+            else:
+                self._send_text(
+                    'stderr',
+                    f'MKernel: Could not identify class name.')
             # do not execute the cell
             return reply
         # prepare execution
