@@ -211,14 +211,13 @@ class MKernel(Kernel):
     )
     # regular expression for class header
     _re_classdef = re.compile(
-        r'^'                                         # start
-        r'classdef\s*'                               # keyword
-        r'(?:\([^\)]*\))?\s*'                        # attributes (optional)
-        r'([a-zA-Z]\w*)\s*'                          # class name
-        r'(?:\([^\)]*\))?\s*'                        # input arguments (optional)
-        r'(?:(\s*<?\s*(\w*\s*)(&\s*\w*\s*)*)?'       # superclasses (optional)
-        r'(?:%.*)?'                                  # comment (optional)
-        r'$'                                         # end
+        r'^'                        # start
+        r'classdef\s*'              # keyword
+        r'(?:\([^\)]*\))?\s*'       # attributes (optional)
+        r'([a-zA-Z]\w*)\s*'         # class name
+        r'(?:<\s*[a-zA-Z]\w*\s*)*'  # superclasses (optional)
+        r'(?:%.*)?'                 # comment (optional)
+        r'$'                        # end
     )
 
     def do_execute(self, code, silent, store_history=True,
@@ -273,10 +272,10 @@ class MKernel(Kernel):
             else:
                 self._send_text(
                     'stderr',
-                    f'MKernel: Could not identify function name.')
+                    'MKernel: Could not identify function name.')
             # do not execute the cell
             return reply
-        # check for function definition
+        # check for class definition
         if code.lstrip().startswith("classdef"):
             self.log.info('processing Matlab class definition',
                           extra={'reply': reply})
@@ -303,7 +302,7 @@ class MKernel(Kernel):
             else:
                 self._send_text(
                     'stderr',
-                    f'MKernel: Could not identify class name.')
+                    'MKernel: Could not identify class name.')
             # do not execute the cell
             return reply
         # prepare execution
