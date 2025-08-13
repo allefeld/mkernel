@@ -72,11 +72,11 @@ jupyter qtconsole --kernel mkernel
 In the following, this documentation will refer to a notebook cell, executable code block, or other unit of code sent for execution as a 'code cell'.
 
 
-## Functions
+## Functions and classes
 
-If a code cell starts with `function`, the kernel attempts to identify the name of the function and writes the complete cell code to a file in the current directory, with that name and the extension `.m`.
+If a code cell starts with `function` or `classdef`, the kernel attempts to identify the name of the function or class and writes the complete cell code to a file in the current directory, with that name and the extension `.m`.
 
-Note that the file is written regardless of whether it already exists, which poses the danger of overwriting a different function with the same name. It is recommended to use a short prefix for all function names to prevent that.
+Note that the file is written regardless of whether it already exists, which poses the danger of overwriting a different file with the same name. It is recommended to use a short prefix for all function and class names to prevent that.
 
 
 ## Configuration
